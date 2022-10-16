@@ -223,7 +223,7 @@ public class AudioWebSocketAdapter extends WebSocketAdapter {
                 disconnect();
                 // TODO There are multiple reasons for a disconnect close code and we do not want to reconnect
                 //  for all of them (e.g., when the channel was deleted).
-                connection.reconnect();
+                connection.close(); // connection.reconnect();
                 break;
             case UNKNOWN_ERROR:
             case UNKNOWN_OPCODE:
