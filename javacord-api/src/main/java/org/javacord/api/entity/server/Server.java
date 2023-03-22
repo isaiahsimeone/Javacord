@@ -2010,33 +2010,6 @@ public interface Server extends DiscordEntity, Nameable, Deletable, UpdatableFro
     /**
      * Bans the given user from the server.
      *
-     * @param user              The user to ban.
-     * @param deleteMessageDays The number of days to delete messages for (0-7).
-     * @return A future to check if the ban was successful.
-     * @deprecated Use {@link #banUser(User, long, TimeUnit, String)} instead.
-     */
-    @Deprecated
-    default CompletableFuture<Void> banUser(User user, int deleteMessageDays) {
-        return banUser(user.getId(), deleteMessageDays);
-    }
-
-    /**
-     * Bans the given user from the server.
-     *
-     * @param user              The user to ban.
-     * @param deleteMessageDays The number of days to delete messages for (0-7).
-     * @param reason            The reason for the ban.
-     * @return A future to check if the ban was successful.
-     * @deprecated Use {@link #banUser(User, long, TimeUnit, String)} instead.
-     */
-    @Deprecated
-    default CompletableFuture<Void> banUser(User user, int deleteMessageDays, String reason) {
-        return banUser(user.getId(), deleteMessageDays, reason);
-    }
-
-    /**
-     * Bans the given user from the server.
-     *
      * @param user                  The user to ban.
      * @param deleteMessageDuration The number of messages to delete within the duration.
      *                              (Between 0 and 604800 seconds (7 days))
@@ -2107,32 +2080,6 @@ public interface Server extends DiscordEntity, Nameable, Deletable, UpdatableFro
     /**
      * Bans the given user from the server.
      *
-     * @param userId            The id of the user to ban.
-     * @param deleteMessageDays The number of days to delete messages for (0-7).
-     * @return A future to check if the ban was successful.
-     * @deprecated Use {@link #banUser(String, long, TimeUnit)} instead.
-     */
-    @Deprecated
-    default CompletableFuture<Void> banUser(String userId, int deleteMessageDays) {
-        return banUser(userId, deleteMessageDays, TimeUnit.DAYS);
-    }
-
-    /**
-     * Bans the given user from the server.
-     *
-     * @param userId            The id of the user to ban.
-     * @param deleteMessageDays The number of days to delete messages for (0-7).
-     * @return A future to check if the ban was successful.
-     * @deprecated Use {@link #banUser(String, long, TimeUnit)} instead.
-     */
-    @Deprecated
-    default CompletableFuture<Void> banUser(long userId, int deleteMessageDays) {
-        return banUser(Long.toUnsignedString(userId), deleteMessageDays);
-    }
-
-    /**
-     * Bans the given user from the server.
-     *
      * @param userId                The id of the user to ban.
      * @param deleteMessageDuration The number of messages to delete within the duration.
      *                              (Between 0 and 604800 seconds (7 days))
@@ -2176,34 +2123,6 @@ public interface Server extends DiscordEntity, Nameable, Deletable, UpdatableFro
      */
     default CompletableFuture<Void> banUser(long userId, Duration duration) {
         return banUser(Long.toUnsignedString(userId), duration);
-    }
-
-    /**
-     * Bans the given user from the server.
-     *
-     * @param userId            The id of the user to ban.
-     * @param deleteMessageDays The number of days to delete messages for (0-7).
-     * @param reason            The reason for the ban.
-     * @return A future to check if the ban was successful.
-     * @deprecated Use {@link #banUser(String, long, TimeUnit)} instead.
-     */
-    @Deprecated
-    default CompletableFuture<Void> banUser(String userId, int deleteMessageDays, String reason) {
-        return banUser(userId, deleteMessageDays, TimeUnit.DAYS, reason);
-    }
-
-    /**
-     * Bans the given user from the server.
-     *
-     * @param userId            The id of the user to ban.
-     * @param deleteMessageDays The number of days to delete messages for (0-7).
-     * @param reason            The reason for the ban.
-     * @return A future to check if the ban was successful.
-     * @deprecated Use {@link #banUser(String, long, TimeUnit)} instead.
-     */
-    @Deprecated
-    default CompletableFuture<Void> banUser(long userId, int deleteMessageDays, String reason) {
-        return banUser(Long.toUnsignedString(userId), deleteMessageDays, reason);
     }
 
     /**
@@ -3465,6 +3384,66 @@ public interface Server extends DiscordEntity, Nameable, Deletable, UpdatableFro
         return canBanUser(getApi().getYourself(), userToBan);
     }
 
+    /**
+     * Checks if the given user can timeout users from the server.
+     *
+     * @param user The user to check.
+     * @return Whether the given user can timeout users or not.
+     */
+    default boolean canTimeoutUsers(User user) {
+        return hasAnyPermission(user,
+                PermissionType.ADMINISTRATOR,
+                PermissionType.MODERATE_MEMBERS);
+    }
+
+    /**
+     * Checks if the user of the connected account can timeout users from the server.
+     *
+     * @return Whether the user of the connected account can timeout users or not.
+     */
+    default boolean canYouTimeoutUsers() {
+        return canTimeoutUsers(getApi().getYourself());
+    }
+
+    /**
+     * Check if the user of the connected account can timeout the user.
+     * This method also considers the position of the user roles and the owner.
+     *
+     * @param userToTimeout The user which should be timed out.
+     * @return Whether the user of the connected account can timeout the user or not.
+     */
+    default boolean canYouTimeoutUser(User userToTimeout) {
+        return canTimeoutUser(getApi().getYourself(), userToTimeout);
+    }
+
+    /**
+     * Checks if the given user can timeout the other user.
+     * This method also considers the position of the user roles and the owner.
+     *
+     * @param user          The user which "want" to ban the other user.
+     * @param userToTimeOut The user which should be timed out.
+     * @return Whether the given user can timeout the other user or not.
+     */
+    default boolean canTimeoutUser(User user, User userToTimeOut) {
+        // owner can always timeout, regardless of role for example
+        if (isOwner(user)) {
+            return true;
+        }
+        // user cannot timeout at all
+        if (!canTimeoutUsers(user)) {
+            return false;
+        }
+
+        // only returns empty optional if user is not member of server
+        Role ownRole = getHighestRole(user).orElseThrow(AssertionError::new);
+        Optional<Role> otherRole = getHighestRole(userToTimeOut);
+
+        // otherRole empty => userToTimeOut is not on the server => timeout is allowed as Discord allows it
+        boolean userToKickOnServer = otherRole.isPresent();
+        return !userToKickOnServer || (ownRole.compareTo(otherRole.get()) > 0);
+    }
+
+
     @Override
     default Optional<Server> getCurrentCachedInstance() {
         return getApi().getServerById(getId());
@@ -3596,7 +3575,9 @@ public interface Server extends DiscordEntity, Nameable, Deletable, UpdatableFro
         try {
             return requestStickerById(Long.parseLong(id));
         } catch (NumberFormatException exception) {
-            throw new IllegalArgumentException("The ID must be a number.");
+            CompletableFuture<Sticker> future = new CompletableFuture<>();
+            future.completeExceptionally(exception);
+            return future;
         }
     }
 

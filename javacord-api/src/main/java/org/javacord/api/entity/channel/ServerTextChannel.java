@@ -1,9 +1,7 @@
 package org.javacord.api.entity.channel;
 
-import org.javacord.api.entity.Mentionable;
 import org.javacord.api.entity.message.Message;
 import org.javacord.api.entity.server.ArchivedThreads;
-import org.javacord.api.entity.webhook.WebhookBuilder;
 import org.javacord.api.listener.channel.server.text.ServerTextChannelAttachableListenerManager;
 import java.util.NoSuchElementException;
 import java.util.Optional;
@@ -12,8 +10,13 @@ import java.util.concurrent.CompletableFuture;
 /**
  * This class represents a server text channel.
  */
-public interface ServerTextChannel extends RegularServerChannel, TextChannel, Mentionable, Categorizable,
+public interface ServerTextChannel extends RegularServerChannel, TextableRegularServerChannel,
         ServerTextChannelAttachableListenerManager {
+
+    @Override
+    default String getMentionTag() {
+        return "<#" + getIdAsString() + ">";
+    }
 
     /**
      * Gets the default auto archive duration for threads that will be created in this channel.
@@ -23,27 +26,11 @@ public interface ServerTextChannel extends RegularServerChannel, TextChannel, Me
     int getDefaultAutoArchiveDuration();
 
     /**
-     * Checks is the channel is "not safe for work".
-     *
-     * @return Whether the channel is "not safe for work" or not.
-     */
-    boolean isNsfw();
-
-    /**
      * Gets the topic of the channel.
      *
      * @return The topic of the channel.
      */
     String getTopic();
-
-    /**
-     * Creates a webhook builder for this channel.
-     *
-     * @return A webhook builder.
-     */
-    default WebhookBuilder createWebhookBuilder() {
-        return new WebhookBuilder(this);
-    }
 
     /**
      * Creates an updater for this channel.

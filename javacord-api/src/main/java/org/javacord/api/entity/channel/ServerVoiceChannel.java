@@ -13,7 +13,7 @@ import java.util.concurrent.CompletableFuture;
 /**
  * This class represents a server voice channel.
  */
-public interface ServerVoiceChannel extends RegularServerChannel, VoiceChannel, Categorizable,
+public interface ServerVoiceChannel extends RegularServerChannel, VoiceChannel, TextableRegularServerChannel,
                                             ServerVoiceChannelAttachableListenerManager {
 
     /**
@@ -46,6 +46,13 @@ public interface ServerVoiceChannel extends RegularServerChannel, VoiceChannel, 
                 .map(AudioConnection::close)
                 .orElseGet(() -> CompletableFuture.completedFuture(null));
     }
+
+    /**
+     * Checks if the channel is "not safe for work".
+     *
+     * @return Whether the channel is "not safe for work" or not.
+     */
+    boolean isNsfw();
 
     /**
      * Gets the bitrate (int bits) of the channel.
@@ -100,7 +107,8 @@ public interface ServerVoiceChannel extends RegularServerChannel, VoiceChannel, 
      * @return Whether the given user is a priority speaker or not.
      */
     default boolean isPrioritySpeaker(User user) {
-        return hasAnyPermission(user, PermissionType.ADMINISTRATOR, PermissionType.PRIORITY_SPEAKER);
+        return hasAnyPermission(user, PermissionType.ADMINISTRATOR, PermissionType.PRIORITY_SPEAKER)
+                || hasPermissions(user, PermissionType.PRIORITY_SPEAKER, PermissionType.CONNECT);
     }
 
     /**
@@ -129,7 +137,8 @@ public interface ServerVoiceChannel extends RegularServerChannel, VoiceChannel, 
      * @return Whether the given user can mute users or not.
      */
     default boolean canMuteUsers(User user) {
-        return hasAnyPermission(user, PermissionType.ADMINISTRATOR, PermissionType.MUTE_MEMBERS);
+        return hasPermission(user, PermissionType.ADMINISTRATOR)
+                || hasPermissions(user, PermissionType.MUTE_MEMBERS, PermissionType.CONNECT);
     }
 
     /**
@@ -148,7 +157,8 @@ public interface ServerVoiceChannel extends RegularServerChannel, VoiceChannel, 
      * @return Whether the given user can speak or not.
      */
     default boolean canSpeak(User user) {
-        return hasAnyPermission(user, PermissionType.ADMINISTRATOR, PermissionType.SPEAK);
+        return hasPermission(user, PermissionType.ADMINISTRATOR)
+                || hasPermissions(user, PermissionType.SPEAK, PermissionType.CONNECT);
     }
 
     /**
@@ -167,7 +177,8 @@ public interface ServerVoiceChannel extends RegularServerChannel, VoiceChannel, 
      * @return Whether the given user can use video or not.
      */
     default boolean canUseVideo(User user) {
-        return hasAnyPermission(user, PermissionType.ADMINISTRATOR, PermissionType.STREAM);
+        return hasPermission(user, PermissionType.ADMINISTRATOR)
+                || hasPermissions(user, PermissionType.STREAM, PermissionType.CONNECT);
     }
 
     /**
@@ -186,7 +197,8 @@ public interface ServerVoiceChannel extends RegularServerChannel, VoiceChannel, 
      * @return Whether the given user can move users or not.
      */
     default boolean canMoveUsers(User user) {
-        return hasAnyPermission(user, PermissionType.ADMINISTRATOR, PermissionType.MOVE_MEMBERS);
+        return hasPermission(user, PermissionType.ADMINISTRATOR)
+                || hasPermissions(user, PermissionType.MOVE_MEMBERS, PermissionType.CONNECT);
     }
 
     /**
@@ -205,7 +217,8 @@ public interface ServerVoiceChannel extends RegularServerChannel, VoiceChannel, 
      * @return Whether the given user can use voice activation or not.
      */
     default boolean canUseVoiceActivation(User user) {
-        return hasAnyPermission(user, PermissionType.ADMINISTRATOR, PermissionType.USE_VOICE_ACTIVITY);
+        return hasAnyPermission(user, PermissionType.ADMINISTRATOR)
+                || hasPermissions(user, PermissionType.USE_VOICE_ACTIVITY, PermissionType.CONNECT);
     }
 
     /**
@@ -224,7 +237,8 @@ public interface ServerVoiceChannel extends RegularServerChannel, VoiceChannel, 
      * @return Whether the given user can deafen users or not.
      */
     default boolean canDeafenUsers(User user) {
-        return hasAnyPermission(user, PermissionType.ADMINISTRATOR, PermissionType.DEAFEN_MEMBERS);
+        return hasPermission(user, PermissionType.ADMINISTRATOR)
+                || hasPermissions(user, PermissionType.DEAFEN_MEMBERS, PermissionType.CONNECT);
     }
 
     /**
@@ -306,6 +320,19 @@ public interface ServerVoiceChannel extends RegularServerChannel, VoiceChannel, 
      */
     default CompletableFuture<Void> removeCategory() {
         return createUpdater().removeCategory().update();
+    }
+
+    /**
+     * Updates the nsfw flag of the channel.
+     *
+     * <p>If you want to update several settings at once, it's recommended to use the
+     * {@link ServerTextChannelUpdater} from {@link #createUpdater()} which provides a better performance!
+     *
+     * @param nsfw The new nsfw flag of the channel.
+     * @return A future to check if the update was successful.
+     */
+    default CompletableFuture<Void> updateNsfwFlag(boolean nsfw) {
+        return createUpdater().setNsfw(nsfw).update();
     }
 
     @Override

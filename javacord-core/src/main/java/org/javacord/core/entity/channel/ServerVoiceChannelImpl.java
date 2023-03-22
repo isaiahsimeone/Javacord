@@ -6,10 +6,13 @@ import org.javacord.api.entity.DiscordEntity;
 import org.javacord.api.entity.channel.ChannelCategory;
 import org.javacord.api.entity.channel.ServerVoiceChannel;
 import org.javacord.api.entity.user.User;
+import org.javacord.api.util.cache.MessageCache;
 import org.javacord.core.DiscordApiImpl;
 import org.javacord.core.audio.AudioConnectionImpl;
 import org.javacord.core.entity.server.ServerImpl;
 import org.javacord.core.listener.channel.server.voice.InternalServerVoiceChannelAttachableListenerManager;
+import org.javacord.core.util.Cleanupable;
+import org.javacord.core.util.cache.MessageCacheImpl;
 
 import java.util.Collections;
 import java.util.HashSet;
@@ -23,7 +26,13 @@ import java.util.stream.Collectors;
  * The implementation of {@link ServerVoiceChannel}.
  */
 public class ServerVoiceChannelImpl extends RegularServerChannelImpl
-        implements ServerVoiceChannel, InternalServerVoiceChannelAttachableListenerManager {
+        implements ServerVoiceChannel, Cleanupable, InternalTextChannel,
+        InternalServerVoiceChannelAttachableListenerManager {
+
+    /**
+     * The message cache of the server text channel.
+     */
+    private final MessageCacheImpl messageCache;
 
     /**
      * The bitrate of the channel.
@@ -41,6 +50,11 @@ public class ServerVoiceChannelImpl extends RegularServerChannelImpl
     private volatile long parentId;
 
     /**
+     * Whether the channel is "not safe for work" or not.
+     */
+    private volatile boolean nsfw;
+
+    /**
      * The ids of the connected users of this server voice channel.
      */
     private final Set<Long> connectedUsers = new HashSet<>();
@@ -54,9 +68,16 @@ public class ServerVoiceChannelImpl extends RegularServerChannelImpl
      */
     public ServerVoiceChannelImpl(DiscordApiImpl api, ServerImpl server, JsonNode data) {
         super(api, server, data);
+
+        nsfw = data.has("nsfw") && data.get("nsfw").asBoolean();
         bitrate = data.get("bitrate").asInt();
         userLimit = data.get("user_limit").asInt();
         parentId = Long.parseLong(data.has("parent_id") ? data.get("parent_id").asText("-1") : "-1");
+        nsfw = data.has("nsfw") && data.get("nsfw").asBoolean();
+
+        messageCache = new MessageCacheImpl(
+                api, api.getDefaultMessageCacheCapacity(), api.getDefaultMessageCacheStorageTimeInSeconds(),
+                api.isDefaultAutomaticMessageCacheCleanupEnabled());
     }
 
     /**
@@ -87,6 +108,15 @@ public class ServerVoiceChannelImpl extends RegularServerChannelImpl
     }
 
     /**
+     * Sets the nsfw flag.
+     *
+     * @param nsfw The nsfw flag.
+     */
+    public void setNsfwFlag(boolean nsfw) {
+        this.nsfw = nsfw;
+    }
+
+    /**
      * Adds the user with the given id to the list of connected users.
      *
      * @param userId The id of the user to add.
@@ -102,6 +132,20 @@ public class ServerVoiceChannelImpl extends RegularServerChannelImpl
      */
     public void removeConnectedUser(long userId) {
         connectedUsers.remove(userId);
+    }
+
+    /**
+     * Sets the nsfw flag of the channel.
+     *
+     * @param nsfw The new nsfw flag of the channel.
+     */
+    public void setNsfw(boolean nsfw) {
+        this.nsfw = nsfw;
+    }
+
+    @Override
+    public boolean isNsfw() {
+        return nsfw;
     }
 
     @Override
@@ -174,4 +218,13 @@ public class ServerVoiceChannelImpl extends RegularServerChannelImpl
         return String.format("ServerVoiceChannel (id: %s, name: %s)", getIdAsString(), getName());
     }
 
+    @Override
+    public MessageCache getMessageCache() {
+        return messageCache;
+    }
+
+    @Override
+    public void cleanup() {
+        messageCache.cleanup();
+    }
 }
